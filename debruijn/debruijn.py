@@ -515,14 +515,13 @@ def main() -> None:  # pragma: no cover
     contigs = get_contigs(graph, start_nodes, end_nodes)
     save_contigs(contigs, args.output_file)
 
-    # draw_graph(graph, args.graphimg_file)
-
     # Fonctions de dessin du graphe
     # A decommenter si vous souhaitez visualiser un petit
     # graphe
     # Plot the graph
     if args.graphimg_file:
         draw_graph(graph, args.graphimg_file)
+
 
 
 if __name__ == "__main__":  # pragma: no cover
