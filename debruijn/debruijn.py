@@ -26,6 +26,7 @@ from networkx import (
     draw,
     spring_layout,
 )
+import networkx as nx
 import matplotlib
 from operator import itemgetter
 import random
@@ -276,7 +277,7 @@ def simplify_bubbles(graph: DiGraph) -> DiGraph:
     :param graph: (nx.DiGraph) A directed graph object
     :return: (nx.DiGraph) A directed graph object
     """
-    
+
     bubble_found = True
 
     while bubble_found:
@@ -305,7 +306,44 @@ def solve_entry_tips(graph: DiGraph, starting_nodes: List[str]) -> DiGraph:
     :param starting_nodes: (list) A list of starting nodes
     :return: (nx.DiGraph) A directed graph object
     """
-    pass
+
+    tips_found = True
+
+    while tips_found:
+        tips_found = False
+        for node in graph.nodes:
+
+            predecessors = list(graph.predecessors(node))
+            if len(predecessors) > 1:
+                path_list = []
+                path_length = []
+                weight_avg_list = []
+                valid_paths = False
+
+                for start_node in starting_nodes:
+                    if has_path(graph, start_node, node):
+                        paths = list(all_simple_paths(graph, start_node, node))
+                        for path in paths:
+                            if len(path) >= 2:
+                                path_list.append(path)
+                                path_length.append(len(path))
+                                weight_avg_list.append(path_average_weight(graph, path))
+                                valid_paths = True
+                
+                if valid_paths and len(path_list) > 1:
+                    graph = select_best_path(
+                        graph,
+                        path_list,
+                        path_length,
+                        weight_avg_list,
+                        delete_entry_node=True,
+                        delete_sink_node=False
+                    )
+                    starting_nodes = get_starting_nodes(graph)
+                    tips_found = True
+                    break 
+    return graph
+
 
 
 def solve_out_tips(graph: DiGraph, ending_nodes: List[str]) -> DiGraph:
@@ -315,7 +353,45 @@ def solve_out_tips(graph: DiGraph, ending_nodes: List[str]) -> DiGraph:
     :param ending_nodes: (list) A list of ending nodes
     :return: (nx.DiGraph) A directed graph object
     """
-    pass
+
+    tips_found = True
+
+    while tips_found:
+        tips_found = False
+        for node in graph.nodes:
+
+            successors = list(graph.successors(node))
+            if len(successors) > 1:
+                path_list = []
+                path_length = []
+                weight_avg_list = []
+                valid_paths = False
+
+                for end_node in ending_nodes:
+                    if has_path(graph, node, end_node):
+                        paths = list(all_simple_paths(graph, node, end_node))
+                        for path in paths:
+                            if len(path) >= 2:
+                                path_list.append(path)
+                                path_length.append(len(path))
+                                weight_avg_list.append(path_average_weight(graph, path))
+                                valid_paths = True
+
+                if valid_paths and len(path_list) > 1:
+                    graph = select_best_path(
+                        graph,
+                        path_list,
+                        path_length,
+                        weight_avg_list,
+                        delete_entry_node=False,
+                        delete_sink_node=True
+                    )
+                    ending_nodes = get_sink_nodes(graph)
+                    tips_found = True
+                    break
+
+    return graph
+    
 
 
 def get_starting_nodes(graph: DiGraph) -> List[str]:
@@ -424,35 +500,29 @@ def main() -> None:  # pragma: no cover
     start_nodes = get_starting_nodes(graph)
     end_nodes = get_sink_nodes(graph)
 
+    graph = simplify_bubbles(graph)
+    start_nodes = get_starting_nodes(graph)
+    end_nodes = get_sink_nodes(graph)
+
+    graph = solve_entry_tips(graph, start_nodes)
+    start_nodes = get_starting_nodes(graph)
+    end_nodes = get_sink_nodes(graph)
+
+    graph = solve_out_tips(graph, end_nodes)
+    start_nodes = get_starting_nodes(graph)
+    end_nodes = get_sink_nodes(graph)
+
     contigs = get_contigs(graph, start_nodes, end_nodes)
     save_contigs(contigs, args.output_file)
 
-    paths = []
-    path_lengths = []
-    path_avg_weights = []
-
-    for start in start_nodes:
-        for end in end_nodes:
-            for path in all_simple_paths(graph, source=start, target=end):
-                paths.append(path)
-
-                path_lengths.append(len(path))
-
-                avg_weight = path_average_weight(graph, path)
-                path_avg_weights.append(avg_weight)
-    
-    cleaned_graph = select_best_path(graph, paths, path_lengths, path_avg_weights, delete_entry_node=True, delete_sink_node=True)
-
-
-    graph_bubble = simplify_bubbles(graph)
-    print(graph_bubble)
+    # draw_graph(graph, args.graphimg_file)
 
     # Fonctions de dessin du graphe
     # A decommenter si vous souhaitez visualiser un petit
     # graphe
     # Plot the graph
-    # if args.graphimg_file:
-    #     draw_graph(graph, args.graphimg_file)
+    if args.graphimg_file:
+        draw_graph(graph, args.graphimg_file)
 
 
 if __name__ == "__main__":  # pragma: no cover
