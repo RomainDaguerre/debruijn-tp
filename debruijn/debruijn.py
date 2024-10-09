@@ -174,18 +174,18 @@ def remove_paths(
     :return: (nx.DiGraph) A directed graph object
     """
     for path in path_list:
-        nodes_to_remove = set(path)
-        
-        if delete_entry_node and path:
-            nodes_to_remove.add(path[0])
-        
-        if delete_sink_node and path:
-            nodes_to_remove.add(path[-1])
-        
-        graph.remove_nodes_from(nodes_to_remove)
+        if not delete_entry_node and not delete_sink_node:
+            path_to_remove = path[1:-1]
+        elif delete_entry_node and not delete_sink_node:
+            path_to_remove = path[:-1]
+        elif not delete_entry_node and delete_sink_node:
+            path_to_remove = path[1:]
+        else:
+            path_to_remove = path
+
+        graph.remove_nodes_from(path_to_remove)
 
     return graph
-
 
 def select_best_path(
     graph: DiGraph,
@@ -205,21 +205,23 @@ def select_best_path(
     :param delete_sink_node: (boolean) True->We remove the last node of a path
     :return: (nx.DiGraph) A directed graph object
     """
-    paths_info = list(enumerate(zip(path_length, weight_avg_list)))
+    weight_stdev = statistics.stdev(weight_avg_list)
+    
+    if weight_stdev > 0:
+        best_paths = [i for i, w in enumerate(weight_avg_list) if w == max(weight_avg_list)]
+    else:
+        length_stdev = statistics.stdev(path_length)
+        
+        if length_stdev > 0:
+            best_paths = [i for i, l in enumerate(path_length) if l == max(path_length)]
+        else:
+            best_paths = [random.randint(0, len(path_list) - 1)]
+    
+    best_path_idx = random.choice(best_paths) if len(best_paths) > 1 else best_paths[0]
+    paths_to_remove = [path_list[i] for i in range(len(path_list)) if i != best_path_idx]
+    cleaned_graph = remove_paths(graph, paths_to_remove, delete_entry_node, delete_sink_node)
 
-    paths_info.sort(key=lambda x: (x[1][1], x[1][0]), reverse=True)
-
-    best_paths_indices = []
-    seen_lca = set()
-    for index, (length, avg_weight) in paths_info:
-        if len(path_list[index]) > 1:
-            lca = nx.lowest_common_ancestor(graph, path_list[index][0], path_list[index][-1])
-            if lca not in seen_lca:
-                seen_lca.add(lca)
-                best_paths_indices.append(index)
-
-    paths_to_remove = [path_list[i] for i in range(len(path_list)) if i not in best_paths_indices]
-    return remove_paths(graph, paths_to_remove, delete_entry_node, delete_sink_node)
+    return cleaned_graph
 
 
 
@@ -384,12 +386,23 @@ def main() -> None:  # pragma: no cover
     contigs = get_contigs(graph, start_nodes, end_nodes)
     save_contigs(contigs, args.output_file)
 
+    paths = []
+    path_lengths = []
+    path_avg_weights = []
+
     for start in start_nodes:
         for end in end_nodes:
-            path = list(all_simple_paths(graph, source=start, target=end))
-            print(path)
-    #cleaned_graph = select_best_path(graph, paths, lengths, weights, delete_entry_node=True, delete_sink_node=True)
+            for path in all_simple_paths(graph, source=start, target=end):
+                paths.append(path)
+
+                path_lengths.append(len(path))
+
+                avg_weight = path_average_weight(graph, path)
+                path_avg_weights.append(avg_weight)
     
+    cleaned_graph = select_best_path(graph, paths, path_lengths, path_avg_weights, delete_entry_node=True, delete_sink_node=True)
+
+    simplify_bubbles(graph)
 
     # Fonctions de dessin du graphe
     # A decommenter si vous souhaitez visualiser un petit
