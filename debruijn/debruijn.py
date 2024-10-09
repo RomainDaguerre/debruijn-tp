@@ -105,11 +105,12 @@ def read_fastq(fastq_file: Path) -> Iterator[str]:
     with fastq_file.open('r') as file:
         while True:
             identifiant = file.readline()
+            if not identifiant: 
+                break
             sequence = file.readline().strip()
             plus = file.readline()
             quality = file.readline()
             yield sequence 
-    return sequence
 
 
 def cut_kmer(read: str, kmer_size: int) -> Iterator[str]:
@@ -118,8 +119,8 @@ def cut_kmer(read: str, kmer_size: int) -> Iterator[str]:
     :param read: (str) Sequence of a read.
     :return: A generator object that provides the kmers (str) of size kmer_size.
     """
-    pass
-
+    for i in range(0, len(read) - kmer_size + 1):
+        yield read[i:i + kmer_size]
 
 def build_kmer_dict(fastq_file: Path, kmer_size: int) -> Dict[str, int]:
     """Build a dictionnary object of all kmer occurrences in the fastq file
@@ -127,7 +128,17 @@ def build_kmer_dict(fastq_file: Path, kmer_size: int) -> Dict[str, int]:
     :param fastq_file: (str) Path to the fastq file.
     :return: A dictionnary object that identify all kmer occurrences.
     """
-    pass
+
+    kmer_dict = {}
+    gen_seq = read_fastq(fastq_file)
+    for seq in gen_seq:  
+        gen_kmer = cut_kmer(seq, kmer_size)
+        for kmer in gen_kmer:  
+            if kmer in kmer_dict:
+                kmer_dict[kmer] += 1
+            else:
+                kmer_dict[kmer] = 1
+    return kmer_dict
 
 
 def build_graph(kmer_dict: Dict[str, int]) -> DiGraph:
@@ -303,8 +314,10 @@ def main() -> None:  # pragma: no cover
     """
     # Get arguments
     args = get_arguments()
-    gen_seq = read_fastq(args.fastq_file)
 
+    kmer_dict = build_kmer_dict(args.fastq_file, args.kmer_size)
+    #print(kmer_dict)
+    
     # Fonctions de dessin du graphe
     # A decommenter si vous souhaitez visualiser un petit
     # graphe
