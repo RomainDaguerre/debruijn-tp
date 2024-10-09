@@ -173,7 +173,18 @@ def remove_paths(
     :param delete_sink_node: (boolean) True->We remove the last node of a path
     :return: (nx.DiGraph) A directed graph object
     """
-    pass
+    for path in path_list:
+        nodes_to_remove = set(path)
+        
+        if delete_entry_node and path:
+            nodes_to_remove.add(path[0])
+        
+        if delete_sink_node and path:
+            nodes_to_remove.add(path[-1])
+        
+        graph.remove_nodes_from(nodes_to_remove)
+
+    return graph
 
 
 def select_best_path(
@@ -194,7 +205,22 @@ def select_best_path(
     :param delete_sink_node: (boolean) True->We remove the last node of a path
     :return: (nx.DiGraph) A directed graph object
     """
-    pass
+    paths_info = list(enumerate(zip(path_length, weight_avg_list)))
+
+    paths_info.sort(key=lambda x: (x[1][1], x[1][0]), reverse=True)
+
+    best_paths_indices = []
+    seen_lca = set()
+    for index, (length, avg_weight) in paths_info:
+        if len(path_list[index]) > 1:
+            lca = nx.lowest_common_ancestor(graph, path_list[index][0], path_list[index][-1])
+            if lca not in seen_lca:
+                seen_lca.add(lca)
+                best_paths_indices.append(index)
+
+    paths_to_remove = [path_list[i] for i in range(len(path_list)) if i not in best_paths_indices]
+    return remove_paths(graph, paths_to_remove, delete_entry_node, delete_sink_node)
+
 
 
 def path_average_weight(graph: DiGraph, path: List[str]) -> float:
@@ -255,7 +281,13 @@ def get_starting_nodes(graph: DiGraph) -> List[str]:
     :param graph: (nx.DiGraph) A directed graph object
     :return: (list) A list of all nodes without predecessors
     """
-    pass
+
+    starting_nodes = []
+
+    for node in graph.nodes():
+        if not list(graph.predecessors(node)):
+            starting_nodes.append(node)
+    return starting_nodes
 
 
 def get_sink_nodes(graph: DiGraph) -> List[str]:
@@ -264,7 +296,12 @@ def get_sink_nodes(graph: DiGraph) -> List[str]:
     :param graph: (nx.DiGraph) A directed graph object
     :return: (list) A list of all nodes without successors
     """
-    pass
+    ending_nodes = []
+
+    for node in graph.nodes():
+        if not list(graph.successors(node)):
+            ending_nodes.append(node)
+    return ending_nodes
 
 
 def get_contigs(
@@ -277,7 +314,19 @@ def get_contigs(
     :param ending_nodes: (list) A list of nodes without successors
     :return: (list) List of [contiguous sequence and their length]
     """
-    pass
+
+    contigs = []
+
+    for start in starting_nodes:
+        for end in ending_nodes:
+            if has_path(graph, start, end) == True:
+                for path in all_simple_paths(graph, source=start, target=end):
+                    contig = path[0]
+                    for node in path[1:]:
+                        contig += node[-1]
+                    contigs.append((contig, len(contig)))
+
+    return contigs
 
 
 def save_contigs(contigs_list: List[str], output_file: Path) -> None:
@@ -286,7 +335,11 @@ def save_contigs(contigs_list: List[str], output_file: Path) -> None:
     :param contig_list: (list) List of [contiguous sequence and their length]
     :param output_file: (Path) Path to the output file
     """
-    pass
+    with open(output_file, 'w') as file:
+        for i, (contig, length) in enumerate(contigs_list):
+            file.write(f">contig_{i} len={length}\n")
+            wrapped_sequence = textwrap.fill(contig, width=80)
+            file.write(wrapped_sequence + "\n")
 
 
 def draw_graph(graph: DiGraph, graphimg_file: Path) -> None:  # pragma: no cover
@@ -325,9 +378,19 @@ def main() -> None:  # pragma: no cover
 
     kmer_dict = build_kmer_dict(args.fastq_file, args.kmer_size)
     graph = build_graph(kmer_dict)
+    start_nodes = get_starting_nodes(graph)
+    end_nodes = get_sink_nodes(graph)
 
-    #print(kmer_dict)
+    contigs = get_contigs(graph, start_nodes, end_nodes)
+    save_contigs(contigs, args.output_file)
+
+    for start in start_nodes:
+        for end in end_nodes:
+            path = list(all_simple_paths(graph, source=start, target=end))
+            print(path)
+    #cleaned_graph = select_best_path(graph, paths, lengths, weights, delete_entry_node=True, delete_sink_node=True)
     
+
     # Fonctions de dessin du graphe
     # A decommenter si vous souhaitez visualiser un petit
     # graphe
