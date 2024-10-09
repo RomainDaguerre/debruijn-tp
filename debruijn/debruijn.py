@@ -105,12 +105,12 @@ def read_fastq(fastq_file: Path) -> Iterator[str]:
     with fastq_file.open('r') as file:
         while True:
             identifiant = file.readline()
-            if not identifiant: 
+            if not identifiant:
                 break
             sequence = file.readline().strip()
             plus = file.readline()
             quality = file.readline()
-            yield sequence 
+            yield sequence
 
 
 def cut_kmer(read: str, kmer_size: int) -> Iterator[str]:
@@ -131,9 +131,9 @@ def build_kmer_dict(fastq_file: Path, kmer_size: int) -> Dict[str, int]:
 
     kmer_dict = {}
     gen_seq = read_fastq(fastq_file)
-    for seq in gen_seq:  
+    for seq in gen_seq:
         gen_kmer = cut_kmer(seq, kmer_size)
-        for kmer in gen_kmer:  
+        for kmer in gen_kmer:
             if kmer in kmer_dict:
                 kmer_dict[kmer] += 1
             else:
@@ -147,7 +147,15 @@ def build_graph(kmer_dict: Dict[str, int]) -> DiGraph:
     :param kmer_dict: A dictionnary object that identify all kmer occurrences.
     :return: A directed graph (nx) of all kmer substring and weight (occurrence).
     """
-    pass
+
+    graph = DiGraph()
+
+    for kmer, count in kmer_dict.items():
+        prefix = kmer[:-1]
+        suffix = kmer[1:]
+        graph.add_edge(prefix, suffix, weight=count)
+
+    return graph
 
 
 def remove_paths(
@@ -316,6 +324,8 @@ def main() -> None:  # pragma: no cover
     args = get_arguments()
 
     kmer_dict = build_kmer_dict(args.fastq_file, args.kmer_size)
+    graph = build_graph(kmer_dict)
+
     #print(kmer_dict)
     
     # Fonctions de dessin du graphe
