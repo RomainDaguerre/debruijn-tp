@@ -102,7 +102,14 @@ def read_fastq(fastq_file: Path) -> Iterator[str]:
     :param fastq_file: (Path) Path to the fastq file.
     :return: A generator object that iterate the read sequences.
     """
-    pass
+    with fastq_file.open('r') as file:
+        while True:
+            identifiant = file.readline()
+            sequence = file.readline().strip()
+            plus = file.readline()
+            quality = file.readline()
+            yield sequence 
+    return sequence
 
 
 def cut_kmer(read: str, kmer_size: int) -> Iterator[str]:
@@ -296,6 +303,7 @@ def main() -> None:  # pragma: no cover
     """
     # Get arguments
     args = get_arguments()
+    gen_seq = read_fastq(args.fastq_file)
 
     # Fonctions de dessin du graphe
     # A decommenter si vous souhaitez visualiser un petit
