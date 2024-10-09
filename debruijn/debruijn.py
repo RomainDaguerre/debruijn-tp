@@ -245,7 +245,29 @@ def solve_bubble(graph: DiGraph, ancestor_node: str, descendant_node: str) -> Di
     :param descendant_node: (str) A downstream node in the graph
     :return: (nx.DiGraph) A directed graph object
     """
-    pass
+
+    paths = []
+    path_lengths = []
+    path_avg_weights = []
+
+    for path in all_simple_paths(graph, source=ancestor_node, target=descendant_node):
+        
+        paths.append(path)
+        path_lengths.append(len(path))
+        avg_weight = path_average_weight(graph, path)
+        path_avg_weights.append(avg_weight)
+
+    cleaned_graph = select_best_path(
+        graph,
+        paths,
+        path_lengths,
+        path_avg_weights,
+        delete_entry_node=False,
+        delete_sink_node=False
+    )
+
+    return cleaned_graph
+    
 
 
 def simplify_bubbles(graph: DiGraph) -> DiGraph:
@@ -254,7 +276,26 @@ def simplify_bubbles(graph: DiGraph) -> DiGraph:
     :param graph: (nx.DiGraph) A directed graph object
     :return: (nx.DiGraph) A directed graph object
     """
-    pass
+    
+    bubble_found = True
+
+    while bubble_found:
+        bubble_found = False
+        for node in graph.nodes():
+            predecessors = list(graph.predecessors(node))
+            if len(predecessors) > 1:
+                for i in range(len(predecessors)):
+                    for j in range(i + 1, len(predecessors)):
+                        ancestor_node = lowest_common_ancestor(graph, predecessors[i], predecessors[j]) 
+                        if ancestor_node is not None:
+                            bubble_found = True
+                            graph = solve_bubble(graph, ancestor_node, node)
+                            break
+                    if bubble_found:
+                        break
+            if bubble_found:
+                break
+    return graph
 
 
 def solve_entry_tips(graph: DiGraph, starting_nodes: List[str]) -> DiGraph:
@@ -402,7 +443,9 @@ def main() -> None:  # pragma: no cover
     
     cleaned_graph = select_best_path(graph, paths, path_lengths, path_avg_weights, delete_entry_node=True, delete_sink_node=True)
 
-    simplify_bubbles(graph)
+
+    graph_bubble = simplify_bubbles(graph)
+    print(graph_bubble)
 
     # Fonctions de dessin du graphe
     # A decommenter si vous souhaitez visualiser un petit
